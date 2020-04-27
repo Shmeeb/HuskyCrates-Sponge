@@ -2,6 +2,7 @@ package com.codehusky.huskycrates;
 
 import com.codehusky.huskycrates.crate.virtual.Key;
 import org.spongepowered.api.Sponge;
+import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.effect.sound.SoundTypes;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.item.inventory.Inventory;
@@ -11,6 +12,7 @@ import org.spongepowered.api.item.inventory.entity.MainPlayerInventory;
 import org.spongepowered.api.item.inventory.query.QueryOperationTypes;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
+import org.spongepowered.api.text.serializer.TextSerializers;
 
 import java.text.DateFormat;
 import java.util.Date;
@@ -44,5 +46,19 @@ public class Util {
     public static void alertAdminsDupe(Player badPlayer, ItemStack stack){
         String mainMessage =  "Player " + badPlayer.getName() + " (" + badPlayer.getUniqueId().toString() + ") tried to use a stack of " + stack.getQuantity() + " " + ((Key.extractKeyId(stack) != null)? Key.extractKeyId(stack):"NO KEY ID") + " keys.";
         alertAdmins(Text.of(TextColors.RED,"[HuskyCrates] ",TextColors.YELLOW,"Key Duplication Alert!\n",TextColors.RED,mainMessage),"[DUPE ALERT] " + mainMessage);
+    }
+
+    public static String color(String string) {
+        return TextSerializers.FORMATTING_CODE.serialize(Text.of(string));
+    }
+
+    public static void sendMessage(CommandSource sender, String message) {
+        if (sender == null) return;
+
+        sender.sendMessage(TextSerializers.FORMATTING_CODE.deserialize(color(message)));
+    }
+
+    public static Text getText(String message) {
+        return TextSerializers.FORMATTING_CODE.deserialize(color(message));
     }
 }

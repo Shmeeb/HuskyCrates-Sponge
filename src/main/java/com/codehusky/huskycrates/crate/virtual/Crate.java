@@ -13,7 +13,14 @@ import com.codehusky.huskyui.states.Page;
 import com.codehusky.huskyui.states.element.Element;
 import com.flowpowered.math.vector.Vector3d;
 import com.google.common.collect.Lists;
+import com.google.common.reflect.TypeToken;
+import com.pixelmonmod.pixelmon.Pixelmon;
+import com.pixelmonmod.pixelmon.api.pokemon.Pokemon;
+import com.pixelmonmod.pixelmon.enums.EnumSpecies;
+import com.pixelmonmod.pixelmon.items.ItemPixelmonSprite;
+import net.shmeeb.miscecmcf.Utils;
 import ninja.leaping.configurate.ConfigurationNode;
+import ninja.leaping.configurate.objectmapping.ObjectMappingException;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.data.DataQuery;
@@ -33,41 +40,30 @@ import org.spongepowered.api.text.serializer.TextSerializers;
 import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Crate {
     private String id;
     private String name;
-
     private Hologram hologram;
-
     private Effect idleEffect;
     private Effect rejectEffect;
     private Effect winEffect;
     private Effect openEffect;
-
     private List<Slot> slots;
-
     private int slotChanceMax = 0;
-
-    private Boolean scrambleSlots;
-
     private Boolean free;
-
     private boolean previewable;
-
     private long cooldownSeconds;
-
-    //TODO unused variable
-    private BlockType defaultBlock;
-
     private Boolean useLocalKey;
     private Key localKey;
-
-    private HashMap<String, Integer> acceptedKeys = new HashMap<>();
-
     private ViewType viewType;
-
     private ViewConfig viewConfig;
+    private boolean pokes = false;
+    private Messages messages;
+    private boolean injection;
+    private HashMap<String, Integer> acceptedKeys = new HashMap<>();
 
     enum ViewType{
         SPINNER, // User watches as their desired reward is selected.
@@ -76,8 +72,6 @@ public class Crate {
         SIMPLE // Delivers a reward with a slight delay.
     }
 
-    private Messages messages;
-    private boolean injection;
     public Crate(ConfigurationNode node){
         if(!node.hasMapChildren()){
             throw new ConfigParseError("Invalid data in crates.conf. Please remove it.",node.getPath());
@@ -85,13 +79,12 @@ public class Crate {
         slots = new ArrayList<>();
         this.id = node.getKey().toString();
         this.name = node.getNode("name").getString();
-
+        this.free = node.getNode("free").getBoolean(false);
         this.useLocalKey = node.getNode("useLocalKey").getBoolean(false);
-
         this.injection = node.getNode("waitForInjection").getBoolean(false);
-
-
+        this.pokes = !node.getNode("pokes").isVirtual();
         ConfigurationNode aKeyNode = node.getNode("acceptedKeys");
+
         if(!aKeyNode.isVirtual()) {
             if (aKeyNode.hasListChildren()) {
                 for(ConfigurationNode keynode : aKeyNode.getChildrenList()){
@@ -113,7 +106,6 @@ public class Crate {
                 throw new ConfigParseError("Invalid key format specified. Odd.",aKeyNode.getPath());
             }
         }
-        this.free = node.getNode("free").getBoolean(false);
 
         if(this.useLocalKey){
             boolean localKeyLaunchesCrate = node.getNode("localKeyLaunchesCrate").getBoolean(false);
@@ -126,22 +118,48 @@ public class Crate {
             throw new ConfigParseError("Non-free crate has no accepted keys!",node.getPath());
         }
 
+        if (pokes) {
+            boolean legs = node.getNode("pokes").getString("").equalsIgnoreCase("legendaries");
+            boolean shiny = node.getNode("shiny").getBoolean(false);
+            int size = legs ? EnumSpecies.legendaries.size() : EnumSpecies.values().length;
+            List<String> blacklist = new ArrayList<>();
+            List<String> doubles = new ArrayList<>();
 
-        if(node.getNode("slots").isVirtual()){
-            if(!this.injection) {
-                throw new ConfigParseError("Crates must have associated slots!", node.getNode("slots").getPath());
-            }else{
-                HuskyCrates.instance.logger.warn("Crate with id of " + this.id + " is waiting for injection.");
+            try {
+                blacklist.addAll(node.getNode("blacklist").getList(TypeToken.of(String.class)));
+                doubles.addAll(node.getNode("doubles").getList(TypeToken.of(String.class)));
+            } catch (ObjectMappingException e) {
+                e.printStackTrace();
             }
-        }else{
+
+            for (int i = 0; i < size; i++) {
+                String name = legs ? EnumSpecies.legendaries.get(i) : EnumSpecies.values()[i].name;
+                if (blacklist.contains(name)) continue;
+                ArrayList<Slot.Reward> rewardGroup = new ArrayList<>();
+                boolean is_double = doubles.contains(name);
+                ItemStack stack = ItemStack.builder()
+                        .fromItemStack(Utils.getSprite(name, shiny))
+                        .add(Keys.DISPLAY_NAME, Text.of(TextColors.AQUA, name))
+                        .build();
+
+                rewardGroup.add(new Slot.Reward(Slot.RewardType.SERVERCOMMAND, "pokegive %p " + name + " lvl:5" + (shiny ? " s" : "")));
+                rewardGroup.add(new Slot.Reward(Slot.RewardType.USERMESSAGE, node.getNode("playerMessage").getString()));
+
+                if (is_double) stack = Utils.enchantItem(stack);
+                Slot thisSlot = new Slot(stack, rewardGroup);
+                if (is_double) slots.add(thisSlot);
+                slots.add(thisSlot);
+            }
+        } else {
             for(ConfigurationNode slot : node.getNode("slots").getChildrenList()){
                 Slot thisSlot = new Slot(slot,this);
                 slotChanceMax += thisSlot.getChance();
                 slots.add(thisSlot);
             }
-            if(slots.size() == 0){
-                throw new ConfigParseError("Crates must have associated slots!", node.getNode("slots").getPath());
-            }
+        }
+
+        if(slots.size() == 0){
+            throw new ConfigParseError("Crates must have associated slots!", node.getNode("slots").getPath());
         }
 
         messages = new Messages(node.getNode("messages"),this.id, HuskyCrates.crateMessages);
@@ -160,11 +178,7 @@ public class Crate {
             throw new ConfigParseError("Invalid view type!", node.getNode("viewType").getPath());
         }
 
-
-
         this.cooldownSeconds = node.getNode("cooldownSeconds").getLong(0);
-
-        this.scrambleSlots = node.getNode("scrambleSlots").getBoolean(false);
 
         ConfigurationNode eNode = node.getNode("effects");
         if(!eNode.getNode("idle").isVirtual()){
@@ -197,7 +211,7 @@ public class Crate {
 
         this.previewable = node.getNode("previewable").getBoolean(false);
     }
-    public Crate(String id, String name, Hologram hologram, Effect idleEffect, Effect rejectEffect, Effect winEffect, Effect openEffect, List<Slot> slots, boolean scrambleSlots, boolean free, boolean previewable, long cooldownSeconds, boolean useLocalKey, Key localKey, HashMap<String, Integer> acceptedKeys, ViewType viewType, ViewConfig viewConfig){
+    public Crate(String id, String name, Hologram hologram, Effect idleEffect, Effect rejectEffect, Effect winEffect, Effect openEffect, List<Slot> slots, boolean free, boolean previewable, long cooldownSeconds, boolean useLocalKey, Key localKey, HashMap<String, Integer> acceptedKeys, ViewType viewType, ViewConfig viewConfig){
         this.id = id;
         this.name = name;
         this.hologram = hologram;
@@ -213,7 +227,6 @@ public class Crate {
         if(slots.size() == 0){
             throw new ConfigParseError("Crates must have associated slots!", Lists.newArrayList("Injected!!!").toArray());
         }
-        this.scrambleSlots =scrambleSlots;
         this.free = free;
         this.previewable = previewable;
         this.cooldownSeconds = cooldownSeconds;
@@ -227,11 +240,14 @@ public class Crate {
     public Crate getScrambledCrate() {
         ArrayList<Slot> newSlots = new ArrayList<>(slots);
         Collections.shuffle(newSlots);
-        return new Crate(id,name,hologram,idleEffect,rejectEffect,winEffect,openEffect,newSlots,scrambleSlots,free,previewable,cooldownSeconds,useLocalKey,localKey,acceptedKeys,viewType,viewConfig);
+
+        for (int i = 0; i < newSlots.size(); i++) {
+            System.out.println(i + ", " + newSlots.get(i).getDisplayItem().toItemStack().get(Keys.DISPLAY_NAME).get().toPlain());
+        }
+
+        return new Crate(id,name,hologram,idleEffect,rejectEffect,winEffect,openEffect,newSlots,free,previewable,cooldownSeconds,useLocalKey,localKey,acceptedKeys,viewType,viewConfig);
     }
-    public boolean isScrambled() {
-        return this.scrambleSlots;
-    }
+
     public boolean isInjectable() {
         return this.injection;
     }
@@ -256,15 +272,20 @@ public class Crate {
     }
 
     public int selectSlot() {
-        int chanceCuml = 0;
-        int selection = new Random().nextInt(slotChanceMax+1);
-        for(int i = 0; i < slots.size(); i++){
-            chanceCuml += slots.get(i).getChance();
-            if(selection <= chanceCuml){
-                return i;
+        if (pokes) {
+            return new Random().nextInt(slots.size());
+        } else {
+            int chanceCuml = 0;
+            int selection = new Random().nextInt(slotChanceMax+1);
+            for(int i = 0; i < slots.size(); i++){
+                chanceCuml += slots.get(i).getChance();
+                if(selection <= chanceCuml){
+                    return i;
+                }
             }
+
+            throw new SlotSelectionError("Slot could not be selected for crate \"" + this.id + "\". chanceCuml=" + chanceCuml + "; selection=" + selection);
         }
-        throw new SlotSelectionError("Slot could not be selected for crate \"" + this.id + "\". chanceCuml=" + chanceCuml + "; selection=" + selection);
     }
 
     public boolean testKey(ItemStack stack){

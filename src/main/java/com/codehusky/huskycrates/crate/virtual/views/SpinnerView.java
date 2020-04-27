@@ -4,6 +4,7 @@ import com.codehusky.huskycrates.HuskyCrates;
 import com.codehusky.huskycrates.crate.physical.PhysicalCrate;
 import com.codehusky.huskycrates.crate.virtual.Crate;
 import com.codehusky.huskycrates.crate.virtual.Item;
+import com.codehusky.huskycrates.crate.virtual.Slot;
 import com.codehusky.huskyui.StateContainer;
 import com.codehusky.huskyui.states.Page;
 import com.codehusky.huskyui.states.element.Element;
@@ -31,44 +32,40 @@ public class SpinnerView implements Consumer<Page> {
     private Location<World> physicalLocation;
     private Crate crate;
     private int selectedSlot;
+    private int winnerSlot;
     private Player player;
     private Config config;
+    private int iterationNum = 0;
 
     public SpinnerView(PhysicalCrate pcrate, Player player){
-        this.crate = pcrate.getCrate();
-        if(this.crate.isScrambled()){
-            this.crate = pcrate.getCrate().getScrambledCrate();
-        }
+        this.crate = pcrate.getCrate().getScrambledCrate();
         this.physicalLocation = pcrate.getLocation();
         this.config = (Config) crate.getViewConfig();
         this.variance = (int)Math.round(new Random().nextDouble() * config.getTicksToSelectionVariance());
-        this.selectedSlot = crate.selectSlot();
         this.player = player;
+        this.selectedSlot = crate.selectSlot();
+        this.winnerSlot = crate.selectSlot();
+
+        System.out.println("preselected winner: " + crate.getSlot(winnerSlot).getDisplayItem().toItemStack().get(Keys.DISPLAY_NAME).get().toPlain());
+
         player.playSound(SoundTypes.BLOCK_WOOD_BUTTON_CLICK_OFF, player.getPosition(), 1.0);
+
         Page.PageBuilder builder =
             Page.builder()
                 .setAutoPaging(false)
                 .setTitle(TextSerializers.FORMATTING_CODE.deserialize(crate.getName()))
                 .setUpdatable(true)
                 .setUpdater(this)
-                    //.setUpdateTickRate(5)
-
                 .setInterrupt(() -> {
                     if(rewardGiven) return;
-                    try {
-                        crate.getSlot(selectedSlot).rewardPlayer(player, this.physicalLocation);
-                        player.playSound(SoundTypes.ENTITY_EXPERIENCE_ORB_PICKUP, player.getLocation().getPosition(), 0.5);
-                    }catch (Exception e){
-                        e.printStackTrace();
-                        HuskyCrates.instance.logger.error("Error occurred while trying to reward player.");
-                        player.sendMessage(Text.of(TextColors.RED,"A fatal exception has occurred while delivering your reward. Please contact server administration."));
-                    }
+
+                    crate.getSlot(winnerSlot).rewardPlayer(player, this.physicalLocation);
+                    player.playSound(SoundTypes.ENTITY_EXPERIENCE_ORB_PICKUP, player.getLocation().getPosition(), 0.5);
                     rewardGiven = true;
                 })
                 .setInventoryDimension(InventoryDimension.of(9,3));
 
         Element borderElement = new Element(config.getBorderItem().toItemStack());
-
         Element selectorItem = new Element(config.getSelectorItem().toItemStack());
 
         for(int i = 0; i < 9*3; i++){
@@ -85,17 +82,12 @@ public class SpinnerView implements Consumer<Page> {
     double currentTickDelay = 1;
     int variance = 0;
     boolean rewardGiven = false;
-
     boolean hasWon = false;
     boolean safetyKill = false;
     long tickWinBegin = 0;
 
     private long getTicksToSelection() {
         return config.getTicksToSelection() + variance;
-    }
-
-    private boolean winCondition() {
-        return spinnerOffset > getTicksToSelection();
     }
 
     private ItemStack getConfetti() {
@@ -106,6 +98,10 @@ public class SpinnerView implements Consumer<Page> {
                 .build();
         g.offer(Keys.DISPLAY_NAME, Text.of(TextStyles.RESET,"You win!"));
         return g;
+    }
+
+    private boolean winCondition() {
+        return spinnerOffset > getTicksToSelection();
     }
 
     @Override
@@ -122,21 +118,27 @@ public class SpinnerView implements Consumer<Page> {
                     int slotSelected = Math.max(0,(
                             /* Buffer and Centering*/
                             (spinnerOffset + spinnerSlotAffected - 3 + crate.getSlotCount()*5)
-                    ) );
+                    ));
                     //offset to fit
                     slotSelected+= selectedSlot - (getTicksToSelection()%crate.getSlotCount());
                     //wrap
                     slotSelected = slotSelected % crate.getSlotCount();
-                    if(currentTicks >= currentTickDelay && num == 13){
-                        //System.out.println(slotSelected + " should be " + selectedSlot + " (" + ((config.getTicksToSelection() + variance ) - spinnerOffset) + " ticks remain) (" + spinnerOffset + ")");
+                    //winner
+
+                    if (iterationNum == 713) {
+                        crate.getSlots().set(slotSelected, crate.getSlot(winnerSlot));
+                    } else {
+                        slot.set(
+                                //(spinner offset + (a buffer to prevent neg numbers + (sel slot + 1 offset) - 3 for centering) + (slotnum rel to center) % slot count
+                                crate.getSlot(slotSelected)
+                                        .getDisplayItem()
+                                        .toItemStack()
+                        );
                     }
-                    slot.set(
-                            //(spinner offset + (a buffer to prevent neg numbers + (sel slot + 1 offset) - 3 for centering) + (slotnum rel to center) % slot count
-                            crate.getSlot(slotSelected)
-                                    .getDisplayItem()
-                                    .toItemStack()
-                    );
+
+                    iterationNum++;
                 }
+
                 num++;
             }
 
@@ -182,7 +184,7 @@ public class SpinnerView implements Consumer<Page> {
             if(!node.getNode("selectorItem").isVirtual()) {
                 this.selectorItem = new Item(node.getNode("selectorItem"));
             }else{
-                this.selectorItem = new Item("&6HuskyCrates", ItemTypes.REDSTONE_TORCH,null,1,null,null,null,null);
+                this.selectorItem = new Item(" ", ItemTypes.REDSTONE_TORCH,null,1,null,null,null,null);
             }
             System.out.println(node.getNode("ticksToSelection").getValue());
             this.ticksToSelection = node.getNode("ticksToSelection").getInt(30);

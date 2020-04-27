@@ -72,7 +72,7 @@ public class CrateListeners {
                     // Try Virtual Key
                     /////////////////////////
 
-                    if(physicalCrate.getCrate().testVirtualKey(player.getUniqueId())){
+                    if(physicalCrate.getCrate().testVirtualKey(player.getUniqueId())) {
                         physicalCrate.getCrate().consumeVirtualKeys(player.getUniqueId());
                         physicalCrate.getCrate().launchView(physicalCrate, player);
                         return;

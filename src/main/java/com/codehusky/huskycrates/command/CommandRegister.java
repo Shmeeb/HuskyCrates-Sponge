@@ -1,6 +1,7 @@
 package com.codehusky.huskycrates.command;
 
 import com.codehusky.huskycrates.HuskyCrates;
+import com.codehusky.huskycrates.OpenVirtualCommand;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.command.CommandSource;
@@ -41,6 +42,11 @@ public class CommandRegister {
                         .executor(new ReloadCommand())
                         .permission("huskycrates.reload")
                         .build(),"rl","r","reload")
+                .child(CommandSpec.builder()
+                        .executor(new OpenVirtualCommand())
+                        .arguments(GenericArguments.onlyOne(GenericArguments.player(Text.of("target"))))
+                        .permission("huskycrates.open")
+                        .build(),"open")
                 .child(CommandSpec.builder()
                         .executor(new ItemNBTCommand())
                         .permission("huskycrates.admin")

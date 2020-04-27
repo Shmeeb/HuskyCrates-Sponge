@@ -224,51 +224,47 @@ public class HuskyCrates {
         logger.info("Loading Crates...");
         loadConfig();
 
-
-
-
-
-        Sponge.getScheduler().createTaskBuilder().execute(new Consumer<Task>() {
-            @Override
-            public void accept(Task task) {
-                try {
-                    long startTime = System.nanoTime();
-                    int particles = 0;
-                    for (Location<World> location : registry.getPhysicalCrates().keySet()) {
-                        PhysicalCrate pcrate = registry.getPhysicalCrate(location);
-                        if (pcrate.getIdleEffect() != null) {
-                            pcrate.getIdleEffect().tick();
-                            particles += pcrate.getIdleEffect().getEffect().getParticleCount();
-                        }
-                    }
-                    long endTime = System.nanoTime();
-                    cumulative += (endTime - startTime);
-                    iterations++;
-                    if(lastMessage + 1000 < System.currentTimeMillis()){
-                        lastMessage = System.currentTimeMillis();
-                        float avg = (cumulative / ((float)iterations));
-                        /*System.out.println("AVG PARTICLE TIME: " + avg + " nanoseconds (" + (avg / 1000000) + " milliseconds)");
-                        System.out.println("EST TIME PER EFFECT: " + (avg / particles) + " nanoseconds (" + (avg / particles / 1000000) + " milliseconds)");
-                        System.out.println("PARTICLES: " + particles);
-                        System.out.println("--------------------------");*/
-                        iterations = 0;
-                        cumulative = 0;
-                    }
-                    //System.out.println("PARTICLE TIME: " + ((endTime - startTime)/1000000.0) + " milliseconds");
-                    ArrayList<EffectInstance> nuke = new ArrayList<>();
-                    for (EffectInstance inst : registry.getEffects()) {
-                        inst.tick();
-                        if (inst.getEffect().isFinished()) {
-                            nuke.add(inst);
-                        }
-                    }
-                    for (EffectInstance inst : nuke) {
-                        inst.resetEffect();
-                        registry.removeEffect(inst);
-                    }
-                }catch (ConcurrentModificationException e){}
-            }
-        }).intervalTicks(1).async().submit(this);
+//        Sponge.getScheduler().createTaskBuilder().execute(new Consumer<Task>() {
+//            @Override
+//            public void accept(Task task) {
+//                try {
+//                    long startTime = System.nanoTime();
+//                    int particles = 0;
+//                    for (Location<World> location : registry.getPhysicalCrates().keySet()) {
+//                        PhysicalCrate pcrate = registry.getPhysicalCrate(location);
+//                        if (pcrate.getIdleEffect() != null) {
+//                            pcrate.getIdleEffect().tick();
+//                            particles += pcrate.getIdleEffect().getEffect().getParticleCount();
+//                        }
+//                    }
+//                    long endTime = System.nanoTime();
+//                    cumulative += (endTime - startTime);
+//                    iterations++;
+//                    if(lastMessage + 1000 < System.currentTimeMillis()){
+//                        lastMessage = System.currentTimeMillis();
+//                        float avg = (cumulative / ((float)iterations));
+//                        /*System.out.println("AVG PARTICLE TIME: " + avg + " nanoseconds (" + (avg / 1000000) + " milliseconds)");
+//                        System.out.println("EST TIME PER EFFECT: " + (avg / particles) + " nanoseconds (" + (avg / particles / 1000000) + " milliseconds)");
+//                        System.out.println("PARTICLES: " + particles);
+//                        System.out.println("--------------------------");*/
+//                        iterations = 0;
+//                        cumulative = 0;
+//                    }
+//                    //System.out.println("PARTICLE TIME: " + ((endTime - startTime)/1000000.0) + " milliseconds");
+//                    ArrayList<EffectInstance> nuke = new ArrayList<>();
+//                    for (EffectInstance inst : registry.getEffects()) {
+//                        inst.tick();
+//                        if (inst.getEffect().isFinished()) {
+//                            nuke.add(inst);
+//                        }
+//                    }
+//                    for (EffectInstance inst : nuke) {
+//                        inst.resetEffect();
+//                        registry.removeEffect(inst);
+//                    }
+//                }catch (ConcurrentModificationException e){}
+//            }
+//        }).intervalTicks(1).async().submit(this);
 
         Sponge.getScheduler().createTaskBuilder()
                 .execute(registry::pushDirty)

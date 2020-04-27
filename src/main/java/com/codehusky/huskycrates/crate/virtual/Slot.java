@@ -7,10 +7,12 @@ import com.codehusky.huskycrates.exception.ConfigError;
 import com.codehusky.huskycrates.exception.ConfigParseError;
 import com.codehusky.huskycrates.exception.InjectionDataError;
 import com.codehusky.huskycrates.exception.RewardDeliveryError;
-import com.sun.istack.internal.NotNull;
+//import com.sun.istack.internal.NotNull;
+import org.jetbrains.annotations.NotNull;
 import ninja.leaping.configurate.ConfigurationNode;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.entity.living.player.Player;
+import org.spongepowered.api.item.inventory.ItemStack;
 import org.spongepowered.api.item.inventory.transaction.InventoryTransactionResult;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
@@ -25,21 +27,22 @@ import java.util.Random;
 
 public class Slot {
     private Item displayItem;
-
     private List<Reward> rewards = new ArrayList<>();
     private List<List<Reward>> rewardGroups = new ArrayList<>();
-
-    private Integer chance;
-
+    private double chance;
     private Boolean pickRandom; // if winning results in a mystery selection from rewards.
-
-    private Integer pickSize; // default 1
-
+    private Integer pickSize = 1; // default 1
     private Boolean pickUnique; // if winnings have to be unique or if they can be repeated in one pick
 
-    public Slot(ConfigurationNode node, Crate holder){
-        this.displayItem = new Item(node.getNode("displayItem"));
+    public Slot(ItemStack stack, List<Reward> rewards) {
+        this.displayItem = Item.fromItemStack(stack);
+        this.rewardGroups.add(rewards);
+        this.pickRandom = true;
+        this.pickUnique = false;
+    }
 
+    public Slot(ConfigurationNode node, Crate holder) {
+        this.displayItem = new Item(node.getNode("displayItem"));
 
         for(ConfigurationNode rNode : node.getNode("rewards").getChildrenList()){
             if(rNode.hasListChildren()){
@@ -60,9 +63,8 @@ public class Slot {
         if(node.getNode("chance").isVirtual()){
             throw new ConfigParseError("Chance not specified in reward.",node.getNode("chance").getPath());
         }
+
         this.chance = node.getNode("chance").getInt();
-
-
         this.pickRandom = node.getNode("pickRandom").getBoolean(false);
 
         if(this.pickRandom){
@@ -118,6 +120,7 @@ public class Slot {
     public boolean rewardPlayer(Player player, Location<World> crateLocation){
         List<Object> theseRewards = new ArrayList<>(rewards);
         theseRewards.addAll(rewardGroups);
+
         if(this.pickRandom){
             ArrayList<Object> availRewards = new ArrayList<>(rewards);
             availRewards.addAll(rewardGroups);
@@ -126,11 +129,11 @@ public class Slot {
             for(int i = 0; i < this.pickSize; i++){
                 Object selected = availRewards.get(new Random().nextInt(availRewards.size()));
                 selectedRewards.add(selected);
-
                 if(this.pickUnique) availRewards.remove(selected);
             }
             theseRewards = selectedRewards;
         }
+
         try {
             for (Object reward : theseRewards) {
                 if(reward instanceof Reward) {
@@ -141,15 +144,16 @@ public class Slot {
                     }
                 }
             }
-        }catch(Exception e){
+        } catch(Exception e){
             e.printStackTrace();
             player.sendMessage(Text.of(TextColors.RED,"A fatal error has occurred while trying to deliver your reward. Please contact server administration."));
             return false;
         }
+
         return true;
     }
 
-    public Integer getChance() {
+    public double getChance() {
         return chance;
     }
 
@@ -163,21 +167,14 @@ public class Slot {
 
     public static class Reward {
         private RewardType rewardType;
-
         private String rewardString; // can be a message or a command. :3
-
         private Item rewardItem;
         private Item displayItem;
-
         private Effect effect;
         private boolean effectOnPlayer = false;
-
         private Integer keyCount = 1;
 
-        private String crateid;
-
         private Reward(ConfigurationNode node, ConfigurationNode displayItemNode, Crate holder){
-            crateid = holder.getId();
             try {
                 this.rewardType = RewardType.valueOf(node.getNode("type").getString("").toUpperCase());
             }catch(IllegalArgumentException e){
@@ -210,11 +207,16 @@ public class Slot {
             }
         }
 
+        public Reward(@NotNull RewardType rewardType, String rewardString) {
+            this.rewardType = rewardType;
+            this.rewardString = rewardString;
+        }
+
         //TODO: builder pattern
         public Reward(@NotNull Crate holder, @NotNull RewardType rewardType,  String rewardString, Item rewardItem, Item slotDisplayItem, Effect effect, Boolean effectOnPlayer, Integer keyCount){
             this.displayItem = slotDisplayItem;
-            this.crateid = holder.getId();
             this.rewardType = rewardType;
+
             if(this.rewardType == RewardType.USERCOMMAND || this.rewardType == RewardType.SERVERCOMMAND || this.rewardType == RewardType.SERVERMESSAGE || this.rewardType == RewardType.USERMESSAGE || this.rewardType == RewardType.KEY){
                 this.rewardString = rewardString;
                 if(rewardString == null){
@@ -267,9 +269,8 @@ public class Slot {
                     .replace("%pxd",player.getLocation().getX() + "")
                     .replace("%pyd",player.getLocation().getY() + "")
                     .replace("%pzd",player.getLocation().getZ() + "")
-                    .replace("%R", (displayItem.getName() != null)?displayItem.getName():"<Display Item Has No Name! (CONTACT ADMINS)>")
-                    .replace("%a", (displayItem.getName() != null && vowels.indexOf(displayItem.getName().substring(0,1)) == 0) ? "an":"a")
-                    .replace("%C", (HuskyCrates.registry.isCrate(crateid))?HuskyCrates.registry.getCrate(crateid).getName():"INVALID CRATE! (CONTACT ADMINS)");
+                    .replace("%R", (displayItem != null) ? displayItem.getName() : "<Display Item Has No Name! (CONTACT ADMINS)>")
+                    .replace("%a", (displayItem != null && vowels.indexOf(displayItem.getName().substring(0,1)) == 0) ? "an" : "a");
             
             /*if(Sponge.getPluginManager().isLoaded("placeholderapi")) {
                 return TextSerializers.FORMATTING_CODE.serialize(PlaceholderServiceImpl.get().replacePlaceholders(pP, player, null));
