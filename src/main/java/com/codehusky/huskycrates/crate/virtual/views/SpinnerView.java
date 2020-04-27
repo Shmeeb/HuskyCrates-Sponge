@@ -1,7 +1,5 @@
 package com.codehusky.huskycrates.crate.virtual.views;
 
-import com.codehusky.huskycrates.HuskyCrates;
-import com.codehusky.huskycrates.crate.physical.PhysicalCrate;
 import com.codehusky.huskycrates.crate.virtual.Crate;
 import com.codehusky.huskycrates.crate.virtual.Item;
 import com.codehusky.huskycrates.crate.virtual.Slot;
@@ -19,34 +17,29 @@ import org.spongepowered.api.item.inventory.Inventory;
 import org.spongepowered.api.item.inventory.ItemStack;
 import org.spongepowered.api.item.inventory.property.InventoryDimension;
 import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.text.format.TextStyles;
 import org.spongepowered.api.text.serializer.TextSerializers;
-import org.spongepowered.api.world.Location;
-import org.spongepowered.api.world.World;
 
 import java.util.Random;
 import java.util.function.Consumer;
 
 public class SpinnerView implements Consumer<Page> {
-    private Location<World> physicalLocation;
     private Crate crate;
     private int selectedSlot;
-    private int winnerSlot;
+    private Slot winner;
     private Player player;
     private Config config;
     private int iterationNum = 0;
 
-    public SpinnerView(PhysicalCrate pcrate, Player player){
-        this.crate = pcrate.getCrate().getScrambledCrate();
-        this.physicalLocation = pcrate.getLocation();
+    public SpinnerView(Crate crate, Player player){
+        this.crate = crate.getScrambledCrate();
         this.config = (Config) crate.getViewConfig();
         this.variance = (int)Math.round(new Random().nextDouble() * config.getTicksToSelectionVariance());
         this.player = player;
         this.selectedSlot = crate.selectSlot();
-        this.winnerSlot = crate.selectSlot();
+        this.winner = crate.getSlot(crate.selectSlot());
 
-        System.out.println("preselected winner: " + crate.getSlot(winnerSlot).getDisplayItem().toItemStack().get(Keys.DISPLAY_NAME).get().toPlain());
+        System.out.println("preselected winner: " + winner.getDisplayItem().toItemStack().get(Keys.DISPLAY_NAME).get().toPlain());
 
         player.playSound(SoundTypes.BLOCK_WOOD_BUTTON_CLICK_OFF, player.getPosition(), 1.0);
 
@@ -58,8 +51,7 @@ public class SpinnerView implements Consumer<Page> {
                 .setUpdater(this)
                 .setInterrupt(() -> {
                     if(rewardGiven) return;
-
-                    crate.getSlot(winnerSlot).rewardPlayer(player, this.physicalLocation);
+                    winner.rewardPlayer(player);
                     player.playSound(SoundTypes.ENTITY_EXPERIENCE_ORB_PICKUP, player.getLocation().getPosition(), 0.5);
                     rewardGiven = true;
                 })
@@ -123,17 +115,14 @@ public class SpinnerView implements Consumer<Page> {
                     slotSelected+= selectedSlot - (getTicksToSelection()%crate.getSlotCount());
                     //wrap
                     slotSelected = slotSelected % crate.getSlotCount();
-                    //winner
+
+//                    System.out.println(iterationNum + ", " + crate.getSlot(slotSelected).getDisplayItem().toItemStack().get(Keys.DISPLAY_NAME).get().toPlain());
 
                     if (iterationNum == 713) {
-                        crate.getSlots().set(slotSelected, crate.getSlot(winnerSlot));
+                        crate.getSlots().set(slotSelected, winner);
                     } else {
-                        slot.set(
-                                //(spinner offset + (a buffer to prevent neg numbers + (sel slot + 1 offset) - 3 for centering) + (slotnum rel to center) % slot count
-                                crate.getSlot(slotSelected)
-                                        .getDisplayItem()
-                                        .toItemStack()
-                        );
+                        slot.set(crate.getSlot(slotSelected).getDisplayItem().toItemStack());
+                        //(spinner offset + (a buffer to prevent neg numbers + (sel slot + 1 offset) - 3 for centering) + (slotnum rel to center) % slot count
                     }
 
                     iterationNum++;

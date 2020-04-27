@@ -1,7 +1,6 @@
 package com.codehusky.huskycrates.crate.virtual;
 
 import com.codehusky.huskycrates.HuskyCrates;
-import com.codehusky.huskycrates.crate.physical.PhysicalCrate;
 import com.codehusky.huskycrates.crate.virtual.effects.Effect;
 import com.codehusky.huskycrates.crate.virtual.effects.elements.Particle;
 import com.codehusky.huskycrates.crate.virtual.views.SimpleView;
@@ -14,15 +13,11 @@ import com.codehusky.huskyui.states.element.Element;
 import com.flowpowered.math.vector.Vector3d;
 import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
-import com.pixelmonmod.pixelmon.Pixelmon;
-import com.pixelmonmod.pixelmon.api.pokemon.Pokemon;
 import com.pixelmonmod.pixelmon.enums.EnumSpecies;
-import com.pixelmonmod.pixelmon.items.ItemPixelmonSprite;
 import net.shmeeb.miscecmcf.Utils;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.objectmapping.ObjectMappingException;
 import org.spongepowered.api.Sponge;
-import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.data.DataQuery;
 import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.effect.particle.ParticleEffect;
@@ -40,8 +35,6 @@ import org.spongepowered.api.text.serializer.TextSerializers;
 import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class Crate {
     private String id;
@@ -240,10 +233,6 @@ public class Crate {
     public Crate getScrambledCrate() {
         ArrayList<Slot> newSlots = new ArrayList<>(slots);
         Collections.shuffle(newSlots);
-
-        for (int i = 0; i < newSlots.size(); i++) {
-            System.out.println(i + ", " + newSlots.get(i).getDisplayItem().toItemStack().get(Keys.DISPLAY_NAME).get().toPlain());
-        }
 
         return new Crate(id,name,hologram,idleEffect,rejectEffect,winEffect,openEffect,newSlots,free,previewable,cooldownSeconds,useLocalKey,localKey,acceptedKeys,viewType,viewConfig);
     }
@@ -455,7 +444,7 @@ public class Crate {
         return time != null && (time + (cooldownSeconds*1000)) - System.currentTimeMillis() >= 0;
     }
 
-    public void launchView(PhysicalCrate pcrate, Player player){
+    public void launchView(Crate pcrate, Player player){
         HuskyCrates.registry.updateLastUse(id,player.getUniqueId());
 
         switch(viewType){
@@ -464,7 +453,7 @@ public class Crate {
                 break;
             case INSTANT:
                 player.playSound(SoundTypes.ENTITY_EXPERIENCE_ORB_PICKUP, player.getPosition(), 1.0);
-                this.getSlot(selectSlot()).rewardPlayer(player,pcrate.getLocation());
+                this.getSlot(selectSlot()).rewardPlayer(player);
                 break;
             case SIMPLE:
                 new SimpleView(pcrate,player);

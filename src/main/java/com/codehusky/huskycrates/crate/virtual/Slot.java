@@ -7,9 +7,8 @@ import com.codehusky.huskycrates.exception.ConfigError;
 import com.codehusky.huskycrates.exception.ConfigParseError;
 import com.codehusky.huskycrates.exception.InjectionDataError;
 import com.codehusky.huskycrates.exception.RewardDeliveryError;
-//import com.sun.istack.internal.NotNull;
-import org.jetbrains.annotations.NotNull;
 import ninja.leaping.configurate.ConfigurationNode;
+import org.jetbrains.annotations.NotNull;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.item.inventory.ItemStack;
@@ -17,13 +16,13 @@ import org.spongepowered.api.item.inventory.transaction.InventoryTransactionResu
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.text.serializer.TextSerializers;
-import org.spongepowered.api.world.Location;
-import org.spongepowered.api.world.World;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+
+//import com.sun.istack.internal.NotNull;
 
 public class Slot {
     private Item displayItem;
@@ -117,7 +116,7 @@ public class Slot {
 
     }
 
-    public boolean rewardPlayer(Player player, Location<World> crateLocation){
+    public boolean rewardPlayer(Player player){
         List<Object> theseRewards = new ArrayList<>(rewards);
         theseRewards.addAll(rewardGroups);
 
@@ -137,10 +136,10 @@ public class Slot {
         try {
             for (Object reward : theseRewards) {
                 if(reward instanceof Reward) {
-                    ((Reward)reward).actOnReward(player, crateLocation);
+                    ((Reward)reward).actOnReward(player);
                 }else if(reward instanceof List){
                     for(Reward rr : (List<Reward>)reward){
-                        rr.actOnReward(player,crateLocation);
+                        rr.actOnReward(player);
                     }
                 }
             }
@@ -249,26 +248,12 @@ public class Slot {
             }
         }
 
-        private String replaceCommand(Player player, Location<World> crateLocation){
+        private String replaceCommand(Player player){
             ArrayList<String> vowels = new ArrayList<>(Arrays.asList("a","e","i","o","u"));
 
             String pP = rewardString
                     .replace("%p",player.getName())
                     .replace("%P",player.getUniqueId().toString())
-
-                    .replace("%cxi",crateLocation.getBlockX() + "")
-                    .replace("%cyi",crateLocation.getBlockY() + "")
-                    .replace("%czi",crateLocation.getBlockZ() + "")
-                    .replace("%cxd",crateLocation.getX() + "")
-                    .replace("%cyd",crateLocation.getY() + "")
-                    .replace("%czd",crateLocation.getZ() + "")
-
-                    .replace("%pxi",player.getLocation().getBlockX() + "")
-                    .replace("%pyi",player.getLocation().getBlockY() + "")
-                    .replace("%pzi",player.getLocation().getBlockZ() + "")
-                    .replace("%pxd",player.getLocation().getX() + "")
-                    .replace("%pyd",player.getLocation().getY() + "")
-                    .replace("%pzd",player.getLocation().getZ() + "")
                     .replace("%R", (displayItem != null) ? displayItem.getName() : "<Display Item Has No Name! (CONTACT ADMINS)>")
                     .replace("%a", (displayItem != null && vowels.indexOf(displayItem.getName().substring(0,1)) == 0) ? "an" : "a");
             
@@ -278,7 +263,7 @@ public class Slot {
             return pP;
         }
 
-        public void actOnReward(Player player, Location<World> crateLocation) {
+        public void actOnReward(Player player) {
             try {
                 if (rewardType == RewardType.ITEM) {
 
@@ -288,19 +273,17 @@ public class Slot {
                     }
 
                 } else if (rewardType == RewardType.SERVERMESSAGE) {
-                    Sponge.getServer().getBroadcastChannel().send(TextSerializers.FORMATTING_CODE.deserialize(replaceCommand(player, crateLocation)));
+                    Sponge.getServer().getBroadcastChannel().send(TextSerializers.FORMATTING_CODE.deserialize(replaceCommand(player)));
 
                 } else if (rewardType == RewardType.USERMESSAGE) {
-                    player.sendMessage(TextSerializers.FORMATTING_CODE.deserialize(replaceCommand(player, crateLocation)));
+                    player.sendMessage(TextSerializers.FORMATTING_CODE.deserialize(replaceCommand(player)));
 
                 } else if (rewardType == RewardType.SERVERCOMMAND) {
-                    Sponge.getCommandManager().process(Sponge.getServer().getConsole(), replaceCommand(player, crateLocation));
+                    Sponge.getCommandManager().process(Sponge.getServer().getConsole(), replaceCommand(player));
 
                 } else if (rewardType == RewardType.USERCOMMAND) {
-                    Sponge.getCommandManager().process(player, replaceCommand(player, crateLocation));
+                    Sponge.getCommandManager().process(player, replaceCommand(player));
 
-                } else if (rewardType == RewardType.EFFECT) {
-                    HuskyCrates.registry.runEffect(effect, (effectOnPlayer) ? player.getLocation() : crateLocation);
                 } else if (rewardType == RewardType.KEY) {
                     if (HuskyCrates.registry.getKey(rewardString) == null) {
                         throw new RewardDeliveryError("Failed to deliver key to " + player.getName() + ": \"" + rewardString + "\" is not a valid key id.");

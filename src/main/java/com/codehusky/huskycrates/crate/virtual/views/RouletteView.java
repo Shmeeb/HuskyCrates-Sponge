@@ -1,6 +1,5 @@
 package com.codehusky.huskycrates.crate.virtual.views;
 
-import com.codehusky.huskycrates.crate.physical.PhysicalCrate;
 import com.codehusky.huskycrates.crate.virtual.Crate;
 import com.codehusky.huskyui.StateContainer;
 import com.codehusky.huskyui.states.Page;
@@ -18,21 +17,18 @@ import org.spongepowered.api.item.inventory.property.InventoryDimension;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextStyles;
 import org.spongepowered.api.text.serializer.TextSerializers;
-import org.spongepowered.api.world.Location;
-import org.spongepowered.api.world.World;
 
 import java.util.function.Consumer;
+
 //TODO: implement roulette view as current implementation is just the simple view.
 public class RouletteView implements Consumer<Page> {
-    private Location<World> physicalLocation;
     private Crate crate;
     private int selectedSlot;
     private Player player;
     private ViewConfig config;
 
-    public RouletteView(PhysicalCrate pcrate, Player player){
-        this.crate = pcrate.getCrate();
-        this.physicalLocation = pcrate.getLocation();
+    public RouletteView(Crate crate, Player player){
+        this.crate = crate.getScrambledCrate();
         this.config = crate.getViewConfig();
         this.selectedSlot = crate.selectSlot();
         this.player = player;
@@ -44,7 +40,7 @@ public class RouletteView implements Consumer<Page> {
                 .setUpdatable(true)
                 .setUpdater(this)
                 .setInterrupt(() -> {
-                    crate.getSlot(selectedSlot).rewardPlayer(player,this.physicalLocation);
+                    crate.getSlot(selectedSlot).rewardPlayer(player);
                     player.playSound(SoundTypes.ENTITY_EXPERIENCE_ORB_PICKUP, player.getLocation().getPosition(), 0.5);
                 })
                 .setInventoryDimension(InventoryDimension.of(3,3))

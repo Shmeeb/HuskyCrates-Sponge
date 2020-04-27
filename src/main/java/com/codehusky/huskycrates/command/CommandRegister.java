@@ -10,9 +10,7 @@ import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.text.Text;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class CommandRegister {
     public static void register(HuskyCrates plugin) {
@@ -44,7 +42,9 @@ public class CommandRegister {
                         .build(),"rl","r","reload")
                 .child(CommandSpec.builder()
                         .executor(new OpenVirtualCommand())
-                        .arguments(GenericArguments.onlyOne(GenericArguments.player(Text.of("target"))))
+                        .arguments(
+                                GenericArguments.player(Text.of("target")),
+                                GenericArguments.firstParsing(new CrateArgument(Text.of("type"))))
                         .permission("huskycrates.open")
                         .build(),"open")
                 .child(CommandSpec.builder()
